@@ -4,20 +4,20 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"hash/maphash"
 	"io"
 	"log"
 	"net/http"
 	"time"
 
-	"github.com/roman-mazur/architecture-practice-4-template/httptools"
-	"github.com/roman-mazur/architecture-practice-4-template/signal"
+	"github.com/matshp0/ArchitectureLab4/httptools"
+	"github.com/matshp0/ArchitectureLab4/signal"
 )
 
 var (
-	port       = flag.Int("port", 8090, "load balancer port")
-	timeoutSec = flag.Int("timeout-sec", 3, "request timeout time in seconds")
-	https      = flag.Bool("https", false, "whether backends support HTTPs")
-
+	port         = flag.Int("port", 8090, "load balancer port")
+	timeoutSec   = flag.Int("timeout-sec", 3, "request timeout time in seconds")
+	https        = flag.Bool("https", false, "whether backends support HTTPs")
 	traceEnabled = flag.Bool("trace", false, "whether to include tracing information into responses")
 )
 
@@ -28,7 +28,28 @@ var (
 		"server2:8080",
 		"server3:8080",
 	}
+	seed          = maphash.MakeSeed()
+	availablePool []string
 )
+
+func removeElement(slice []string, value string) []string {
+	var result []string
+	for _, item := range slice {
+		if item != value {
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+func contains(slice []string, value string) bool {
+	for _, item := range slice {
+		if item == value {
+			return true
+		}
+	}
+	return false
+}
 
 func scheme() string {
 	if *https {
@@ -69,7 +90,6 @@ func forward(dst string, rw http.ResponseWriter, r *http.Request) error {
 		if *traceEnabled {
 			rw.Header().Set("lb-from", dst)
 		}
-		log.Println("fwd", resp.StatusCode, resp.Request.URL)
 		rw.WriteHeader(resp.StatusCode)
 		defer resp.Body.Close()
 		_, err := io.Copy(rw, resp.Body)
@@ -84,23 +104,39 @@ func forward(dst string, rw http.ResponseWriter, r *http.Request) error {
 	}
 }
 
+var frontendHandler = http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+	var h maphash.Hash
+	h.SetSeed(seed)
+	h.WriteString(r.URL.Path)
+	target := h.Sum64() % uint64(len(availablePool))
+	err := forward(availablePool[target], rw, r)
+	if err != nil {
+		fmt.Println("failed to forward", err)
+	}
+})
+
 func main() {
 	flag.Parse()
+	availablePool = make([]string, len(serversPool))
+	copy(availablePool, serversPool)
 
-	// TODO: Використовуйте дані про стан сервера, щоб підтримувати список тих серверів, яким можна відправляти запит.
 	for _, server := range serversPool {
 		server := server
 		go func() {
 			for range time.Tick(10 * time.Second) {
-				log.Println(server, "healthy:", health(server))
+				available := health(server)
+				if available {
+					if !contains(availablePool, server) {
+						availablePool = append(availablePool, server)
+					}
+					continue
+				}
+				availablePool = removeElement(availablePool, server)
 			}
 		}()
 	}
 
-	frontend := httptools.CreateServer(*port, http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		// TODO: Реалізуйте свій алгоритм балансувальника.
-		forward(serversPool[0], rw, r)
-	}))
+	frontend := httptools.CreateServer(*port, frontendHandler)
 
 	log.Println("Starting load balancer...")
 	log.Printf("Tracing support enabled: %t", *traceEnabled)
