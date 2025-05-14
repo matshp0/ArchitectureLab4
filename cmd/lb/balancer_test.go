@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -83,7 +84,7 @@ func TestContains(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := contains(tt.slice, tt.value)
+			result := slices.Contains(tt.slice, tt.value)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
