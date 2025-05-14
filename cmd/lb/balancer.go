@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/matshp0/ArchitectureLab4/httptools"
@@ -40,15 +41,6 @@ func removeElement(slice []string, value string) []string {
 		}
 	}
 	return result
-}
-
-func contains(slice []string, value string) bool {
-	for _, item := range slice {
-		if item == value {
-			return true
-		}
-	}
-	return false
 }
 
 func scheme() string {
@@ -126,7 +118,7 @@ func main() {
 			for range time.Tick(10 * time.Second) {
 				available := health(server)
 				if available {
-					if !contains(availablePool, server) {
+					if !slices.Contains(availablePool, server) {
 						availablePool = append(availablePool, server)
 					}
 					continue

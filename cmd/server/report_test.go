@@ -25,7 +25,7 @@ func TestReport_Process(t *testing.T) {
 	}
 
 	req.Header.Set("lb-author", "test-len")
-	for i := 0; i < 103; i++ {
+	for range 103 {
 		req.Header.Set("lb-req-cnt", "test-len")
 		r.Process(req)
 	}
