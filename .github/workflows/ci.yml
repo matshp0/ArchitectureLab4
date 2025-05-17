@@ -24,14 +24,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install docker-compose
+        run: sudo apt-get update && sudo apt-get install -y docker-compose
+
       - name: Run unit tests
         run: |
-          docker-compose up --build -d
-          docker-compose exec -T balancer go test ./... -v
-          docker-compose down
+          docker compose up --build -d
+          docker compose exec -T balancer go test ./... -v
+          docker compose down
 
       - name: Run integration tests
         run: |
-          docker-compose -f docker-compose.yaml -f docker-compose.test.yaml up --build --exit-code-from test
+          docker compose -f docker-compose.yaml -f docker-compose.test.yaml up --build --exit-code-from test
         env:
           INTEGRATION_TEST: "true" 
