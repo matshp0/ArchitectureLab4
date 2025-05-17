@@ -1,0 +1,37 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run unit tests
+        run: |
+          docker-compose up --build -d
+          docker-compose exec -T balancer go test ./... -v
+          docker-compose down
+
+      - name: Run integration tests
+        run: |
+          docker-compose -f docker-compose.yaml -f docker-compose.test.yaml up --build --exit-code-from test
+        env:
+          INTEGRATION_TEST: "true" 
