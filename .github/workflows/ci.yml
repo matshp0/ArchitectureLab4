@@ -27,11 +27,9 @@ jobs:
       - name: Install docker-compose
         run: sudo apt-get update && sudo apt-get install -y docker-compose
 
-      - name: Run unit tests
+      - name: Run unit tests (build stage)
         run: |
-          docker compose up --build -d
-          docker compose exec -T balancer go test ./... -v
-          docker compose down
+          docker compose build
 
       - name: Run integration tests
         run: |
